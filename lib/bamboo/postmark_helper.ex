@@ -60,6 +60,7 @@ defmodule Bamboo.PostmarkHelper do
   def put_param(%Email{private: %{message_params: _}} = email, key, value) do
     put_in(email.private[:message_params][key], value)
   end
+
   def put_param(email, key, value) do
     email
     |> Email.put_private(:message_params, %{})
