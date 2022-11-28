@@ -11,19 +11,21 @@ defmodule Bamboo.PostmarkAdapterTest do
   defmodule FakePostmark do
     use Plug.Router
 
-    plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
-    pass: ["*/*"],
-    json_decoder: Poison
-    plug :match
-    plug :dispatch
+    plug(Plug.Parsers,
+      parsers: [:urlencoded, :multipart, :json],
+      pass: ["*/*"],
+      json_decoder: Poison
+    )
+
+    plug(:match)
+    plug(:dispatch)
 
     def start_server(parent) do
-      Agent.start_link(fn -> Map.new end, name: __MODULE__)
+      Agent.start_link(fn -> Map.new() end, name: __MODULE__)
       Agent.update(__MODULE__, &Map.put(&1, :parent, parent))
       port = get_free_port()
       Application.put_env(:bamboo, :postmark_base_uri, "http://localhost:#{port}")
-      Plug.Adapters.Cowboy.http __MODULE__, [], port: port, ref: __MODULE__
+      Plug.Adapters.Cowboy.http(__MODULE__, [], port: port, ref: __MODULE__)
     end
 
     defp get_free_port do
@@ -34,13 +36,14 @@ defmodule Bamboo.PostmarkAdapterTest do
     end
 
     def shutdown do
-      Plug.Adapters.Cowboy.shutdown __MODULE__
+      Plug.Adapters.Cowboy.shutdown(__MODULE__)
     end
 
     post "email" do
       case get_in(conn.params, ["From"]) do
         "INVALID_EMAIL" ->
           conn |> send_resp(500, "Error!!") |> send_to_parent
+
         _ ->
           conn |> send_resp(200, "SENT") |> send_to_parent
       end
@@ -50,14 +53,15 @@ defmodule Bamboo.PostmarkAdapterTest do
       case get_in(conn.params, ["From"]) do
         "INVALID_EMAIL" ->
           conn |> send_resp(500, "Error!!") |> send_to_parent
+
         _ ->
           conn |> send_resp(200, "SENT") |> send_to_parent
       end
     end
 
     defp send_to_parent(conn) do
-      parent = Agent.get(__MODULE__, fn(set) -> Map.get(set, :parent) end)
-      send parent, {:fake_postmark, conn}
+      parent = Agent.get(__MODULE__, fn set -> Map.get(set, :parent) end)
+      send(parent, {:fake_postmark, conn})
       conn
     end
   end
@@ -65,9 +69,9 @@ defmodule Bamboo.PostmarkAdapterTest do
   setup do
     FakePostmark.start_server(self())
 
-    on_exit fn ->
-      FakePostmark.shutdown
-    end
+    on_exit(fn ->
+      FakePostmark.shutdown()
+    end)
 
     :ok
   end
@@ -106,10 +110,9 @@ defmodule Bamboo.PostmarkAdapterTest do
     request_options = [recv_timeout: 0]
     config = Map.put(@config, :request_options, request_options)
 
+    {:error, %Bamboo.ApiError{message: message}} = PostmarkAdapter.deliver(new_email(), config)
 
-      {:error, %Bamboo.ApiError{message: message}} = PostmarkAdapter.deliver(new_email(), config)
-
-      assert message.message =~ "timeout"
+    assert message.message =~ "timeout"
   end
 
   test "deliver/2 returns {:ok, response}, where response contains the textual body of the request" do
@@ -140,7 +143,7 @@ defmodule Bamboo.PostmarkAdapterTest do
         from: {"From", "from@foo.com"},
         subject: "My Subject",
         text_body: "TEXT BODY",
-        html_body: "HTML BODY",
+        html_body: "HTML BODY"
       ]
       |> new_email()
       |> Email.put_header("Reply-To", "reply@foo.com")
@@ -152,16 +155,18 @@ defmodule Bamboo.PostmarkAdapterTest do
     assert params["Subject"] == email.subject
     assert params["TextBody"] == email.text_body
     assert params["HtmlBody"] == email.html_body
+
     assert params["Headers"] ==
-      [%{"Name" => "Reply-To", "Value" => "reply@foo.com"}]
+             [%{"Name" => "Reply-To", "Value" => "reply@foo.com"}]
   end
 
   test "deliver/2 correctly formats recipients" do
-    email = new_email(
-      to: [{"To", "to@bar.com"}],
-      cc: [{"CC", "cc@bar.com"}],
-      bcc: [{"BCC", "bcc@bar.com"}]
-    )
+    email =
+      new_email(
+        to: [{"To", "to@bar.com"}],
+        cc: [{"CC", "cc@bar.com"}],
+        bcc: [{"BCC", "bcc@bar.com"}]
+      )
 
     PostmarkAdapter.deliver(email, @config)
 
@@ -185,24 +190,26 @@ defmodule Bamboo.PostmarkAdapterTest do
 
     PostmarkAdapter.deliver(email, @config)
 
-    assert_receive {:fake_postmark, %{params: %{"TemplateId" => template_id,
-       "TemplateModel" => template_model}}}
+    assert_receive {:fake_postmark,
+                    %{params: %{"TemplateId" => template_id, "TemplateModel" => template_model}}}
+
     assert template_id == "hello"
     assert template_model == %{}
   end
 
   test "deliver/2 puts template name and content" do
-    email = PostmarkHelper.template(new_email(), "hello", [
-      %{name: "example name", content: "example content"}
-    ])
+    email =
+      PostmarkHelper.template(new_email(), "hello", [
+        %{name: "example name", content: "example content"}
+      ])
 
     PostmarkAdapter.deliver(email, @config)
 
-    assert_receive {:fake_postmark, %{params: %{"TemplateId" => template_id,
-       "TemplateModel" => template_model}}}
+    assert_receive {:fake_postmark,
+                    %{params: %{"TemplateId" => template_id, "TemplateModel" => template_model}}}
+
     assert template_id == "hello"
-    assert template_model == [%{"content" => "example content",
-      "name" => "example name"}]
+    assert template_model == [%{"content" => "example content", "name" => "example name"}]
   end
 
   test "deliver/2 puts tag param" do
@@ -222,9 +229,14 @@ defmodule Bamboo.PostmarkAdapterTest do
 
     PostmarkAdapter.deliver(email, @config)
 
-    assert_receive {:fake_postmark, %{params: %{
-      "TrackLinks" => "HtmlOnly", "TrackOpens" => true, "TemplateId" => "hello"}
-    }}
+    assert_receive {:fake_postmark,
+                    %{
+                      params: %{
+                        "TrackLinks" => "HtmlOnly",
+                        "TrackOpens" => true,
+                        "TemplateId" => "hello"
+                      }
+                    }}
   end
 
   test "deliver/2 puts attachments" do
@@ -239,7 +251,11 @@ defmodule Bamboo.PostmarkAdapterTest do
       %{
         params: %{
           "Attachments" => [
-            %{"Content" => "VGVzdCBBdHRhY2htZW50", "ContentType" => "text/plain", "Name" => "attachment.txt"}
+            %{
+              "Content" => "VGVzdCBBdHRhY2htZW50",
+              "ContentType" => "text/plain",
+              "Name" => "attachment.txt"
+            }
           ]
         }
       }
@@ -247,10 +263,13 @@ defmodule Bamboo.PostmarkAdapterTest do
   end
 
   test "deliver/2 puts inline attachments" do
-    email = PostmarkHelper.template(new_email(), "hello", [
-      %{name: "example name", content: "example content <img src=\"my-attachment\" />"}
-    ])
-    |> Email.put_attachment(Path.join(__DIR__, "../../support/attachment.txt"), content_id: "my-attachment")
+    email =
+      PostmarkHelper.template(new_email(), "hello", [
+        %{name: "example name", content: "example content <img src=\"my-attachment\" />"}
+      ])
+      |> Email.put_attachment(Path.join(__DIR__, "../../support/attachment.txt"),
+        content_id: "my-attachment"
+      )
 
     PostmarkAdapter.deliver(email, @config)
 
