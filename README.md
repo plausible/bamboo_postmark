@@ -27,7 +27,9 @@ config :my_app, MyApp.Mailer,
       # api_key: {:system, "POSTMARK_API_KEY"}
 ```
 
-## Using templates
+## Examples
+
+### Using templates
 
 The Postmark adapter provides a helper module for setting the template of an
 email.
@@ -46,7 +48,7 @@ defmodule MyApp.Mail do
 end
 ```
 
-#### Exception warning
+### Exception warning
 
 Postmark templates include a subject, HTML body and text body and thus these shouldn't be included in the email as they will raise an API exception.
 
@@ -58,7 +60,7 @@ email
 |> text_body("Will raise exception")
 ```
 
-## Tagging emails
+### Tagging emails
 
 The Postmark adapter provides a helper module for tagging emails.
 
@@ -72,7 +74,7 @@ defmodule MyApp.Mail do
 end
 ```
 
-## Sending extra parameters
+### Sending extra parameters
 
 You can send other extra parameters to Postmark with the `put_param` helper.
 
@@ -91,7 +93,7 @@ email
 ])
 ```
 
-## Changing the underlying request configuration
+### Changing the underlying request configuration
 
 You can specify the options that are passed to the underlying HTTP client
 [hackney](https://github.com/benoitc/hackney) by using the `request_options` key
@@ -104,10 +106,10 @@ config :my_app, MyApp.Mailer,
       request_options: [recv_timeout: 10_000]
 ```
 
-## JSON support
+### JSON support
 
 Bamboo comes with JSON support out of the box, see [Bamboo JSON support](https://github.com/thoughtbot/bamboo#json-support).
 
 ## Fork
 
-This library was forked from [pablo-co/bamboo_postmark](http://github.com/pablo-co/bamboo_postmark).
+This repository is a fork of [pablo-co/bamboo_postmark](https://github.com/pablo-co/bamboo_postmark). We've decided to fork because upstream didn't seem to be under active development. The main reason was that sender/recipient names were not encoded properly, [and despite issues and open pull requests](https://github.com/pablo-co/bamboo_postmark/issues/32), the bug wasn't fixed timely.
