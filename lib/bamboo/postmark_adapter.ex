@@ -44,7 +44,7 @@ defmodule Bamboo.PostmarkAdapter do
         error =
           case Jason.decode(response) do
             {:ok, reason} ->
-              # is the response is JSON, we return our custom error for better introspection
+              # if the response is JSON, we return our custom error for better introspection
               Bamboo.PostmarkAdapter.Error.exception(reason: reason, email: email)
 
             {:error, _} ->
