@@ -20,7 +20,19 @@ defmodule Bamboo.PostmarkAdapter do
   @send_email_path "email"
   @send_email_template_path "email/withTemplate"
 
-  import Bamboo.ApiError, only: [build_api_error: 1]
+  defmodule Error do
+    @moduledoc """
+    Custom error struct for Postmark API errors.
+    """
+    defexception [:reason, :email]
+
+    def is_hard_bounce(%{reason: %{"ErrorCode" => 406}}), do: true
+    def is_hard_bounce(_), do: false
+
+    def message(%{reason: reason}) do
+      "delivery error: #{inspect(reason)}"
+    end
+  end
 
   def deliver(email, config) do
     api_key = get_key(config)
@@ -29,13 +41,23 @@ defmodule Bamboo.PostmarkAdapter do
 
     case :hackney.post(uri, headers(api_key), params, options(config)) do
       {:ok, status, _headers, response} when status > 299 ->
-        {:error, build_api_error(%{params: params, response: response})}
+        error =
+          case Jason.decode(response) do
+            {:ok, reason} ->
+              # if the response is JSON, we return our custom error for better introspection
+              Bamboo.PostmarkAdapter.Error.exception(reason: reason, email: email)
+
+            {:error, _} ->
+              Bamboo.ApiError.build_api_error("Postmark", response, params)
+          end
+
+        {:error, error}
 
       {:ok, status, headers, response} ->
         {:ok, %{status_code: status, headers: headers, body: response}}
 
       {:error, reason} ->
-        {:error, build_api_error(%{message: inspect(reason)})}
+        {:error, Bamboo.ApiError.build_api_error("Postmark", reason, params)}
     end
   end
 

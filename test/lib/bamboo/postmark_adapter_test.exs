@@ -112,7 +112,7 @@ defmodule Bamboo.PostmarkAdapterTest do
 
     {:error, %Bamboo.ApiError{message: message}} = PostmarkAdapter.deliver(new_email(), config)
 
-    assert message.message =~ "timeout"
+    assert message =~ "timeout"
   end
 
   test "deliver/2 returns {:ok, response}, where response contains the textual body of the request" do
@@ -295,8 +295,8 @@ defmodule Bamboo.PostmarkAdapterTest do
 
     {:error, %Bamboo.ApiError{message: message}} = PostmarkAdapter.deliver(email, @config)
 
-    assert message.params =~ "INVALID_EMAIL"
-    assert message.response == "Error!!"
+    assert message =~ "INVALID_EMAIL"
+    assert message =~ "Error!!"
   end
 
   defp new_email(attrs \\ []) do
